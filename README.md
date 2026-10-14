@@ -4,7 +4,7 @@ Upload a PDF or text file and chat with it. The app answers questions using **on
 
 Built with **ASP.NET Core 8 Web API**, **Angular**, and the **Google Gemini API**, using a **RAG (Retrieval-Augmented Generation)** pipeline.
 
-![Screenshot](docs/screenshot.png)
+![Screenshot](docs/testingevidence.png)
 
 ## Features
 
