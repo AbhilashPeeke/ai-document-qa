@@ -1,6 +1,7 @@
-import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core';
+import { Component, ElementRef, ViewChild, inject,isDevMode, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { marked } from 'marked';
 
 interface Source {
   chunkNumber: number;
@@ -68,7 +69,11 @@ interface UploadResult {
             <div class="row" [class.user]="m.role === 'user'">
               <div class="avatar">{{ m.role === 'user' ? 'You' : '✦' }}</div>
               <div class="bubble">
-                <div class="text">{{ m.text }}</div>
+                @if (m.role === 'ai') {
+  <div class="text md" [innerHTML]="render(m.text)"></div>
+} @else {
+  <div class="text">{{ m.text }}</div>
+}
                 @if (m.sources && m.sources.length > 0) {
                   <details class="sources">
                     <summary>Sources ({{ m.sources.length }})</summary>
@@ -176,11 +181,20 @@ interface UploadResult {
             display: grid; place-items: center; }
     .send:disabled { opacity: .35; cursor: not-allowed; }
     .note { text-align: center; color: #6b7080; font-size: 12px; margin: 8px 0 0; }
+    .md { white-space: normal; }
+:host ::ng-deep .md p { margin: 0 0 10px; }
+:host ::ng-deep .md > :last-child { margin-bottom: 0; }
+:host ::ng-deep .md ul, :host ::ng-deep .md ol { margin: 6px 0 10px; padding-left: 22px; }
+:host ::ng-deep .md li { margin-bottom: 4px; }
+:host ::ng-deep .md strong { color: #fff; }
+:host ::ng-deep .md code { background: #11141b; padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+:host ::ng-deep .md pre { background: #11141b; padding: 12px; border-radius: 10px; overflow-x: auto; }
+:host ::ng-deep .md pre code { padding: 0; background: none; }
   `]
 })
 export class AppComponent {
   private http = inject(HttpClient);
-  private api = 'https://localhost:44365/api';
+  private api = isDevMode() ? 'https://localhost:44365/api' : '/api';
 
   @ViewChild('scroller') scroller!: ElementRef<HTMLElement>;
 
@@ -232,7 +246,9 @@ export class AppComponent {
       }
     });
   }
-
+render(text: string): string {
+  return marked.parse(text, { async: false, breaks: true }) as string;
+}
   send() {
     const q = this.question.trim();
     if (!q || this.loading() || !this.uploadInfo()) return;
