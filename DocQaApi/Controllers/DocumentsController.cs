@@ -9,10 +9,12 @@ namespace DocQaApi.Controllers;
 public class DocumentsController : ControllerBase
 {
     private readonly DocumentStore _store;
+    private readonly IEmbeddingService _embedder;
 
-    public DocumentsController(DocumentStore store)
+    public DocumentsController(DocumentStore store, IEmbeddingService embedder)
     {
         _store = store;
+        _embedder = embedder;
     }
 
     [HttpPost("upload")]
@@ -52,16 +54,33 @@ public class DocumentsController : ControllerBase
             return BadRequest(new { error = "No text found. A scanned PDF (images only) can't be read yet." });
 
         var chunks = TextChunker.Split(text);
-        _store.Set(file.FileName, text, chunks);
+
+        // Convert chunks to embeddings. If this fails, we still keep the
+        // document and fall back to keyword search.
+        List<float[]>? embeddings = null;
+        string? warning = null;
+        try
+        {
+            embeddings = await _embedder.EmbedDocumentsAsync(chunks);
+        }
+        catch (Exception ex)
+        {
+            warning = "Semantic search unavailable, using keyword search. " + ex.Message;
+        }
+
+        _store.Set(file.FileName, text, chunks, embeddings);
 
         return Ok(new
         {
             fileName = file.FileName,
             characters = text.Length,
             chunkCount = chunks.Count,
+            semanticSearch = embeddings != null,
+            warning,
             preview = text.Length > 300 ? text[..300] : text
         });
     }
+
     [HttpGet("search")]
     public IActionResult Search([FromQuery] string q)
     {
