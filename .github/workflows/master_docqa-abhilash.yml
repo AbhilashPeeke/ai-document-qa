@@ -35,7 +35,10 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-
+          
+      - name: Run unit tests
+        run: dotnet test DocQaApi.sln -c Release
+        
       - name: Publish API
         run: dotnet publish DocQaApi/DocQaApi.csproj -c Release -o ${{ github.workspace }}/publish
 
