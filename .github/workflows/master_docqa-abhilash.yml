@@ -1,7 +1,4 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy ASP.Net Core app to Azure Web App - docqa-abhilash
+name: Build and deploy to Azure Web App - docqa-abhilash
 
 on:
   push:
@@ -13,53 +10,56 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up .NET Core
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Angular
+        working-directory: doc-qa-app
+        run: |
+          npm ci
+          npx ng build --configuration production
+
+      - name: Copy Angular build into the API's wwwroot
+        run: |
+          mkdir -p DocQaApi/wwwroot
+          cp -r doc-qa-app/dist/doc-qa-app/browser/. DocQaApi/wwwroot/
+
+      - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.x'
+          dotnet-version: '10.0.x'
 
-      - name: Build with dotnet
-        run: dotnet build --configuration Release
+      - name: Publish API
+        run: dotnet publish DocQaApi/DocQaApi.csproj -c Release -o ${{ github.workspace }}/publish
 
-      - name: dotnet publish
-        run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
-
-      - name: Upload artifact for deployment job
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
+          name: app
+          path: ${{ github.workspace }}/publish
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
 
     steps:
-      - name: Download artifact from build job
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: .net-app
-      
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_9CB206889A8B43CAADBEBC3856296C11 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_F6748856E6DF4FCBB87DA0CB8B196032 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_124D596431F5401988C433903930A7D3 }}
+          name: app
+          path: app
 
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'docqa-abhilash'
           slot-name: 'Production'
-          package: .
-          
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: app
